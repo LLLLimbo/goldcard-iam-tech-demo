@@ -1,0 +1,28 @@
+version: "3.8"
+
+
+services:
+  simple-auth:
+    restart: on-failure
+    image: simple-auth
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simple-auth
+    ports:
+      - "17010:17010"
+    environment:
+      - "CLIENT_ID=269238927964045319@demo"
+      - "CLIENT_SECRET=4TkojWCg6IjIgtbxRnCyUwAxmodgjAzrLhmNwHjKyWpwc1jeSUgS0VMGMQsZmhP2"
+    volumes:
+      - ./key.json:/app/key.json
+      - ./model.conf:/app/model.conf
+      - ./policy.csv:/app/policy.csv
+      - ./users.json:/app/users.json
+    networks:
+      deploy_zitadel:
+
+
+networks:
+  deploy_zitadel:
+    external: true

@@ -1,0 +1,132 @@
+version: "3.8"
+
+services:
+  apisix-dashboard:
+    image: apache/apisix-dashboard:3.0.0-alpine
+    restart: always
+    volumes:
+      - ./dashboard_conf/conf.yaml:/usr/local/apisix-dashboard/conf/conf.yaml
+    ports:
+      - "9000:9000"
+    networks:
+      zitadel:
+  apisix:
+    image: apache/apisix:${APISIX_IMAGE_TAG:-3.9.0-debian}
+    restart: always
+    volumes:
+      - ./apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    depends_on:
+      - etcd
+    ports:
+      - "9180:9180/tcp"
+      - "9080:9080/tcp"
+      - "9091:9091/tcp"
+      - "9443:9443/tcp"
+      - "9092:9092/tcp"
+    networks:
+      zitadel:
+
+  etcd:
+    image: bitnami/etcd:3.5.11
+    restart: always
+    volumes:
+      - etcd_data:/bitnami/etcd
+    environment:
+      ETCD_ENABLE_V2: "true"
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    ports:
+      - "2379:2379/tcp"
+    networks:
+      zitadel:
+
+  caddy:
+    image: "caddy:latest"
+    volumes:
+      - "./caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
+      - "./caddy/zitadel:/etc/certs/zitadel"
+    ports:
+      - "443:443"
+      - "80:80"
+    networks:
+      zitadel:
+
+  zitadel:
+    restart: 'always'
+    networks:
+      - 'zitadel'
+    image: 'ghcr.io/zitadel/zitadel:latest'
+    command: 'start-from-init --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode disabled'
+    environment:
+      - 'ZITADEL_DATABASE_POSTGRES_HOST=db'
+      - 'ZITADEL_DATABASE_POSTGRES_PORT=5432'
+      - 'ZITADEL_DATABASE_POSTGRES_DATABASE=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_USERNAME=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_PASSWORD=zitadel'
+      - 'ZITADEL_DATABASE_POSTGRES_USER_SSL_MODE=disable'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_USERNAME=postgres'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD=postgres'
+      - 'ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_MODE=disable'
+      - 'ZITADEL_EXTERNALPORT=443'
+      - 'ZITADEL_EXTERNALSECURE=true'
+      - 'ZITADEL_EXTERNALDOMAIN=zitadel'
+      - 'ZITADEL_TLS_ENABLED=false'
+    depends_on:
+      db:
+        condition: 'service_healthy'
+    ports:
+      - '8080:8080'
+
+  db:
+    restart: 'always'
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=zitadel
+    networks:
+      - 'zitadel'
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "zitadel", "-U", "postgres" ]
+      interval: '10s'
+      timeout: '30s'
+      retries: 5
+      start_period: '20s'
+    ports:
+      - '5432:5432'
+  generic-oidc:
+    restart: on-failure
+    image: quay.io/keycloak/keycloak:24.0.4
+    container_name: generic-oidc
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HTTP_PORT=9998
+    command: start-dev
+    ports:
+      - "9998:9998"
+    networks:
+      zitadel:
+  mailhog:
+    restart: on-failure
+    image: mailhog/mailhog
+    container_name: mailhog
+    environment:
+        - MH_AUTH_FILE=/mailhog_conf/auth
+    volumes:
+      - ./mailhog_conf:/mailhog_conf
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      zitadel:
+
+
+networks:
+  zitadel:
+    driver: bridge
+
+volumes:
+  etcd_data:
+    driver: local

@@ -1,0 +1,9 @@
+https://zitadel {
+    tls /etc/certs/zitadel/server.crt /etc/certs/zitadel/server.key
+    reverse_proxy h2c://zitadel:8080
+}
+
+http://generic-oidc {
+    reverse_proxy generic-oidc:9998
+}
+

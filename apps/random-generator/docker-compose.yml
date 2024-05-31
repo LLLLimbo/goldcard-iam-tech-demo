@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  random-generator-api:
+    restart: on-failure
+    image: random-generator-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: random-generator-api
+    ports:
+      - "5000:5000"
+    networks:
+      deploy_zitadel:
+  random-generator-web:
+    restart: on-failure
+    image: random-generator-web
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: random-generator-web
+    ports:
+      - "3000:3000"
+    networks:
+      deploy_zitadel:
+
+
+networks:
+  deploy_zitadel:
+    external: true

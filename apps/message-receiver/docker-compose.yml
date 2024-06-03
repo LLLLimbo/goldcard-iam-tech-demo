@@ -1,0 +1,20 @@
+version: "3.8"
+
+
+services:
+  message-receiver:
+    restart: on-failure
+    image: message-receiver
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: message-receiver
+    ports:
+      - "17011:17011"
+    networks:
+      deploy_zitadel:
+
+
+networks:
+  deploy_zitadel:
+    external: true
